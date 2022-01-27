@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from typing import Mapping, Optional, Union
 
 import rdflib.namespace
-from rdflib import DCTERMS, FOAF, RDF, RDFS, SKOS, XSD, Literal, URIRef
+from rdflib import DC, DCTERMS, FOAF, Literal, Namespace, RDF, RDFS, SKOS, URIRef, XSD
 from rdflib.term import Node
 
 __all__ = [
@@ -18,6 +18,8 @@ __all__ = [
     "bioregistry_schema",
     "orcid",
 ]
+
+RO = Namespace["http://purl.obolibrary.org/obo/RO_"]
 
 
 @dataclass
@@ -43,6 +45,7 @@ class PropertyTerm(Term):
 
     domain: Union[str, Node]
     range: Union[str, Node]
+    xref: Optional[URIRef] = None
 
 
 bioregistry_schema_terms = [
@@ -170,6 +173,7 @@ bioregistry_schema_terms = [
         "in the resources denoted by the object prefix",
         domain="0000001",
         range="0000001",
+        xref=RO["0002502"],  # depends on
     ),
     PropertyTerm(
         "0000018",
@@ -233,6 +237,17 @@ bioregistry_class_to_id: Mapping[str, URIRef] = {
     if term.type == "Class"
 }
 orcid = rdflib.namespace.Namespace("https://orcid.org/")
+
+DEFAULT_CONTEXT = {
+    "bioregistry": bioregistry_resource,
+    "bioregistry.metaresource": bioregistry_metaresource,
+    "bioregistry.collection": bioregistry_collection,
+    "bioregistry.schema": bioregistry_schema,
+    "orcid": orcid,
+    "foaf": FOAF,
+    "dc": DC,
+    "dcterms": DCTERMS,
+}
 
 
 def get_schema_rdf() -> rdflib.Graph:

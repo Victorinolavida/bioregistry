@@ -3,12 +3,13 @@
 """Generate a small knowledge graph relating entities."""
 
 import click
-import pystow
-from more_click import verbose_option
 from ndex2 import NiceCXBuilder
 
 import bioregistry
 import bioregistry.version
+import pystow
+from bioregistry.export.sssom_export import INTERNAL_PREFIX_MAP, get_rows
+from more_click import verbose_option
 
 NDEX_UUID = "aa78a43f-9c4d-11eb-9e72-0ac135e8bacf"
 
@@ -31,67 +32,28 @@ def upload():
     )
     cx.add_network_attribute("hash", bioregistry.version.get_git_hash())
     cx.add_network_attribute("version", bioregistry.version.get_version())
-    cx.set_context(
-        {
-            "bioregistry.collection": "https://bioregistry.io/collection/",
-            "bioregistry.registry": "https://bioregistry.io/metaregistry/",
-            "bioregistry": "https://bioregistry.io/registry/",
-        }
-    )
+    cx.set_context(INTERNAL_PREFIX_MAP)
 
-    metaregistry = bioregistry.read_metaregistry()
-    registry = bioregistry.read_registry()
+    registry_nodes = {metaprefix: make_registry_node(cx, metaprefix) for metaprefix in bioregistry.read_metaregistry()}
+    resource_nodes = {prefix: make_resource_node(cx, prefix) for prefix in bioregistry.read_registry()}
+    collection_nodes = {identifier: make_collection_node(cx, identifier) for identifier in bioregistry.read_collections()}
 
-    registry_nodes = {metaprefix: make_registry_node(cx, metaprefix) for metaprefix in metaregistry}
-    resource_nodes = {prefix: make_resource_node(cx, prefix) for prefix in registry}
+    def _get_node(prefix: str, identifier: str) -> int:
+        if prefix == "bioregistry":
+            return registry_nodes[identifier]
+        elif prefix == "bioregistry.collection":
+            return collection_nodes[identifier]
+        elif prefix == "bioregistry."
 
-    for prefix, entry in registry.items():
-        # Who does it provide for?
-        provides = bioregistry.get_provides_for(prefix)
-        if isinstance(provides, str):
-            provides = [provides]
-        for target in provides or []:
-            cx.add_edge(
-                source=resource_nodes[prefix],
-                target=resource_nodes[target],
-                interaction="provides",
-            )
-        if entry.part_of and entry.part_of in resource_nodes:
-            cx.add_edge(
-                source=resource_nodes[prefix],
-                target=resource_nodes[entry.part_of],
-                interaction="part_of",
-            )
-        if entry.has_canonical:
-            cx.add_edge(
-                source=resource_nodes[prefix],
-                target=resource_nodes[entry.has_canonical],
-                interaction="has_canonical",
-            )
+    def _get_relation(prefix: str, identifier: str) -> str:
+        pass
 
-        # Which registries does it map to?
-        for metaprefix in metaregistry:
-            if metaprefix not in entry:
-                continue
-            cx.add_edge(
-                source=resource_nodes[prefix],
-                target=registry_nodes[metaprefix],
-                interaction="listed",
-            )
-
-    for collection_id, collection in bioregistry.read_collections().items():
-        source = cx.add_node(
-            name=collection.name,
-            represents=f"bioregistry.collection:{collection_id}",
+    for sp, si, pp, pi, op, oi in get_rows():
+        cx.add_edge(
+            source=_get_node(sp, si),
+            target=_get_node(op, oi),
+            interaction=_get_relation(pp, pi),
         )
-        if collection.description:
-            cx.add_node_attribute(source, "description", collection.description)
-        for prefix in collection.resources:
-            cx.add_edge(
-                source=source,
-                target=resource_nodes[prefix],
-                interaction="has_prefix",
-            )
 
     nice_cx = cx.get_nice_cx()
     nice_cx.update_to(
@@ -133,6 +95,20 @@ def make_resource_node(cx: NiceCXBuilder, prefix: str) -> int:
     if pattern:
         cx.add_node_attribute(node, "pattern", pattern)
     # TODO add more
+    return node
+
+
+def make_collection_node(cx: NiceCXBuilder, collection_id: str) -> int:
+    """Make a collection node."""
+    collection = bioregistry.get_collection(collection_id)
+    if collection is None:
+        raise ValueError
+    node = cx.add_node(
+        name=collection.name,
+        represents=f"bioregistry.collection:{collection_id}",
+    )
+    if collection.description:
+        cx.add_node_attribute(node, "description", collection.description)
     return node
 
 

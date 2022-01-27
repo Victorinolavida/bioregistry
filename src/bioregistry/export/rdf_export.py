@@ -22,7 +22,7 @@ from bioregistry.constants import (
     SCHEMA_NT_PATH,
     SCHEMA_TURTLE_PATH,
 )
-from bioregistry.export.sssom_export import CURIE_MAP
+from bioregistry.export.sssom_export import INTERNAL_PREFIX_MAP
 from bioregistry.schema.constants import (
     bioregistry_collection,
     bioregistry_metaresource,
@@ -30,12 +30,13 @@ from bioregistry.schema.constants import (
     bioregistry_schema,
     get_schema_rdf,
     orcid,
+DEFAULT_CONTEXT,
 )
 from bioregistry.schema.struct import Collection, Registry
 
 logger = logging.getLogger(__name__)
 
-NAMESPACES = {_ns: Namespace(_uri) for _ns, _uri in CURIE_MAP.items()}
+NAMESPACES = {_ns: Namespace(_uri) for _ns, _uri in INTERNAL_PREFIX_MAP.items()}
 NAMESPACE_WARNINGS = set()
 
 
@@ -82,15 +83,9 @@ def _graph() -> rdflib.Graph:
 
 
 def _bind(graph: rdflib.Graph) -> None:
-    graph.namespace_manager.bind("bioregistry", bioregistry_resource)
-    graph.namespace_manager.bind("bioregistry.metaresource", bioregistry_metaresource)
-    graph.namespace_manager.bind("bioregistry.collection", bioregistry_collection)
-    graph.namespace_manager.bind("bioregistry.schema", bioregistry_schema)
-    graph.namespace_manager.bind("orcid", orcid)
-    graph.namespace_manager.bind("foaf", FOAF)
-    graph.namespace_manager.bind("dc", DC)
-    graph.namespace_manager.bind("dcterms", DCTERMS)
-    for key, value in CURIE_MAP.items():
+    for prefix, namespace in DEFAULT_CONTEXT.items():
+        graph.namespace_manager.bind(prefix, namespace)
+    for key, value in INTERNAL_PREFIX_MAP.items():
         graph.namespace_manager.bind(key, value)
 
 
