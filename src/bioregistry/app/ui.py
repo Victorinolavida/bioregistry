@@ -4,9 +4,8 @@
 
 from typing import Optional
 
-from flask import Blueprint, abort, redirect, render_template, url_for
-
 import bioregistry
+from flask import Blueprint, abort, redirect, render_template, url_for
 
 from .utils import (
     _get_resource_mapping_rows,
@@ -320,3 +319,29 @@ def contributor(orcid: str):
 
 def _s(prefixes):
     return sorted((p, bioregistry.get_resource(p)) for p in prefixes)
+
+
+@ui_blueprint.route("/overview")
+def overview():
+    """Show the overview page."""
+    return render_template(
+        "overview.html",
+        deprecated=[
+            r for r in manager.registry.values() if r.is_deprecated()
+        ],
+        part_of=[
+            (r, manager.get_resource(r.part_of))
+            for r in manager.registry.values()
+            if r.part_of
+        ],
+        provides=[
+            (r, manager.get_resource(r.provides))
+            for r in manager.registry.values()
+            if r.provides
+        ],
+        canonicals=[
+            (r, manager.get_resource(r.has_canonical))
+            for r in manager.registry.values()
+            if r.has_canonical
+        ],
+    )

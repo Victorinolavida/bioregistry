@@ -139,7 +139,7 @@ def write_metaregistry(metaregistry: Mapping[str, Registry]) -> None:
         )
 
 
-def read_contributors() -> Mapping[str, Attributable]:
+def read_contributors(contacts: bool = True) -> Mapping[str, Attributable]:
     """Get a mapping from contributor ORCID identifiers to author objects."""
     rv: Dict[str, Attributable] = {}
     for resource in read_registry().values():
@@ -147,10 +147,10 @@ def read_contributors() -> Mapping[str, Attributable]:
             rv[resource.contributor.orcid] = resource.contributor
         if resource.reviewer and resource.reviewer.orcid:
             rv[resource.reviewer.orcid] = resource.reviewer
-        if resource.contact and resource.contact.orcid:
+        if contacts and resource.contact and resource.contact.orcid:
             rv[resource.contact.orcid] = resource.contact
     for metaresource in read_metaregistry().values():
-        if metaresource.contact.orcid:
+        if contacts and metaresource.contact.orcid:
             rv[metaresource.contact.orcid] = metaresource.contact
     for collection in read_collections().values():
         for author in collection.authors or []:

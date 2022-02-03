@@ -3,13 +3,22 @@
 """Utility functions for the Bioregistry :mod:`flask` app."""
 
 import json
-from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, List, Mapping, Optional, Sequence, Tuple, Union
 
 import yaml
-from flask import abort, current_app, redirect, render_template, request, url_for
+from flask import (
+    Response,
+    abort,
+    current_app,
+    redirect,
+    render_template,
+    request,
+    url_for,
+)
 from pydantic import BaseModel
 
 import bioregistry
+from bioregistry import manager
 from bioregistry.constants import BIOREGISTRY_REMOTE_URL
 from bioregistry.schema import Resource, sanitize_model
 from bioregistry.utils import extended_encoder
@@ -56,16 +65,37 @@ def _get_resource_mapping_rows(resource: Resource) -> Optional[List[Mapping[str,
     ]
 
 
-def _normalize_prefix_or_404(prefix: str, endpoint: Optional[str] = None):
+def _normalize_prefix_or_404(prefix: str, endpoint: Optional[str] = None) -> Union[str, Response]:
     try:
         norm_prefix = bioregistry.normalize_prefix(prefix)
     except ValueError:
         norm_prefix = None
     if norm_prefix is None:
-        return render_template("resolve_errors/missing_prefix.html", prefix=prefix), 404
+        return Response(
+            response=render_template("resolve_errors/missing_prefix.html", prefix=prefix),
+            status=404,
+        )
     elif endpoint is not None and norm_prefix != prefix:
         return redirect(url_for(endpoint, prefix=norm_prefix))
     return norm_prefix
+
+
+def get_resource_or_404(prefix: str, api: bool = True) -> Union[Resource, Response]:
+    """Get a resource or send a 404 for missing prefix."""
+    resource = manager.get_resource(prefix)
+    if resource is not None:
+        return resource
+    elif api:
+        return Response(
+            json.dumps({"msg": f"Prefix is not valid: {prefix}", "prefix": prefix}),
+            status=404,
+            mimetype=current_app.config["JSONIFY_MIMETYPE"],
+        )
+    else:
+        return Response(
+            response=render_template("resolve_errors/missing_prefix.html", prefix=prefix),
+            status=404,
+        )
 
 
 def _search(q: str) -> List[str]:
@@ -165,7 +195,7 @@ def _get_identifier(prefix: str, identifier: str) -> Mapping[str, Any]:
     )
 
 
-def jsonify(data):
+def jsonify(data) -> Response:
     """Dump data as JSON, like like :func:`flask.jsonify`."""
     return current_app.response_class(
         json.dumps(data, ensure_ascii=False, default=extended_encoder) + "\n",
@@ -173,7 +203,7 @@ def jsonify(data):
     )
 
 
-def yamlify(data):
+def yamlify(data) -> Response:
     """Dump data as YAML, like :func:`flask.jsonify`."""
     if isinstance(data, BaseModel):
         data = sanitize_model(data)
@@ -188,7 +218,7 @@ def _get_format(default: str = "json") -> str:
     return request.args.get("format", default=default)
 
 
-def serialize(data, serializers: Optional[Sequence[Tuple[str, str, Callable]]] = None):
+def serialize(data, serializers: Optional[Sequence[Tuple[str, str, Callable]]] = None) -> Response:
     """Serialize either as JSON or YAML."""
     fmt = _get_format()
     if fmt == "json":

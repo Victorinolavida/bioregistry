@@ -402,7 +402,9 @@ class TestRegistry(unittest.TestCase):
 
     def test_get_rdf(self):
         """Test conversion to RDF."""
-        s = resource_to_rdf_str("chebi")
+        resource = bioregistry.get_resource("chebi")
+        self.assertIsNotNone(resource)
+        s = resource_to_rdf_str(resource)
         self.assertIsInstance(s, str)
 
     @unittest.skip(
