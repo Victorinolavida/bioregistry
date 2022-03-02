@@ -67,7 +67,9 @@ def home():
         metaregistry_size=len(bioregistry.read_metaregistry()),
         collections_size=len(bioregistry.read_collections()),
         contributors_size=len(bioregistry.read_contributors(contacts=False)),
-        mappings_size=sum(len(resource.get_mappings()) for resource in bioregistry.read_registry().values()),
+        mappings_size=sum(
+            len(resource.get_mappings()) for resource in bioregistry.read_registry().values()
+        ),
     )
 
 
